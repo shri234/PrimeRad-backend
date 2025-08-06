@@ -29,7 +29,7 @@ const allowedOrigins = [
    "http://localhost:3000",
   "http://localhost:3001",
   "https://yourdomain.com",
-  "https://heroic-crisp-76fe7e.netlify.app",
+  "https://primerad-subscription.netlify.app",
 ];
 app.use(
   cors({
@@ -86,4 +86,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
 );
+
 

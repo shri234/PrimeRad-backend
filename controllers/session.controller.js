@@ -19,6 +19,7 @@ async function validateAspectRatio(imagePath, width, height) {
 
 async function createSession(req, res) {
   try {
+    console.log(req.body, "Body");
     let getPathologies = req.body?.pathologyId?.trim()
       ? await Pathology.findById(req.body?.pathologyId?.trim())
       : null;
@@ -54,13 +55,13 @@ async function createSession(req, res) {
       }
     }
 
-    // Common data to extract
     const commonSessionData = {
       title: req.body?.title,
       description: req.body?.description,
       moduleName: req.body?.moduleName,
+      moduleId: req.body?.moduleId,
       pathologyName: getPathologies?.pathologyName || req.body?.pathologyName,
-      pathologyId: req.body?.pathologyId,
+      pathologyId: req.body?.subCategoryId,
       difficulty: req.body?.difficulty,
       isFree: req.body?.isFree,
       sponsored: req.body?.sponsored,
@@ -142,7 +143,113 @@ async function createSession(req, res) {
       .json({ message: "Couldn't create session", error: err.message });
   }
 }
+async function getCompletedSessionsByUsers(req, res) {
+  try {
+    const { userId } = req.query;
 
+    // Find all completed sessions for this user
+    const completedSessions = await UserSessionView.find({
+      userId,
+      isCompleted: true,
+    }).sort({ updatedAt: -1 }); // Latest first
+
+    res.status(200).json({
+      success: true,
+      count: completedSessions.length,
+      sessions: completedSessions,
+    });
+  } catch (error) {
+    console.error("Error fetching completed sessions:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+}
+
+async function getSessionsByDifficulty(req, res) {
+  try {
+    const { difficulty, pathologyId, page = 1, limit = 10 } = req.query;
+    if (
+      !difficulty ||
+      !["beginner", "advanced"].includes(difficulty.toLowerCase())
+    ) {
+      return res.status(400).json({
+        message:
+          "Difficulty parameter is required and must be either 'beginner' or 'advanced'",
+      });
+    }
+
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNum - 1) * limitNum;
+
+    const populateFacultyQuery = { path: "faculty", select: "name image" };
+    const difficultyFilter = {
+      pathologyId: pathologyId,
+      difficulty: difficulty.toLowerCase(),
+    };
+
+    // Fetch all three types of sessions with the specified difficulty
+    const [dicomSessions, recordedSessions, liveSessions] = await Promise.all([
+      DicomCases.find(difficultyFilter)
+        .populate(populateFacultyQuery)
+        .sort({ createdAt: -1 }),
+      RecordedLectures.find(difficultyFilter)
+        .populate(populateFacultyQuery)
+        .sort({ createdAt: -1 }),
+      LivePrograms.find(difficultyFilter)
+        .populate(populateFacultyQuery)
+        .sort({ createdAt: -1 }),
+    ]);
+
+    // Combine all sessions and add sessionType identifier
+    let combinedSessions = [
+      ...dicomSessions.map((session) => ({
+        ...session.toObject(),
+        sessionType: "Dicom",
+      })),
+      ...recordedSessions.map((session) => ({
+        ...session.toObject(),
+        sessionType: "Vimeo",
+      })),
+      ...liveSessions.map((session) => ({
+        ...session.toObject(),
+        sessionType: "Live",
+      })),
+    ];
+
+    // Sort combined sessions by creation date (most recent first)
+    combinedSessions.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    // Apply pagination to combined results
+    const totalCount = combinedSessions.length;
+    const paginatedSessions = combinedSessions.slice(skip, skip + limitNum);
+
+    return res.status(200).json({
+      message: `Got ${difficulty} sessions successfully`,
+      page: pageNum,
+      limit: limitNum,
+      total: totalCount,
+      difficulty: difficulty.toLowerCase(),
+      data: paginatedSessions,
+      breakdown: {
+        dicomCount: dicomSessions.length,
+        recordedCount: recordedSessions.length,
+        liveCount: liveSessions.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getSessionsByDifficulty:", error);
+    return res.status(500).json({
+      message: "Error in getting sessions by difficulty",
+      error: error.message,
+    });
+  }
+}
 async function getSessions(req, res) {
   try {
     let getSessions = []; // Used for paginated data
@@ -761,7 +868,11 @@ async function trackSessionView(req, res) {
   // or if PlaybackProgress should distinguish between live and recorded/dicom
   try {
     let data = await UserSessionView.findOneAndUpdate(
-      { userId: req?.query?.userId, sessionId: req?.query?.sessionId },
+      {
+        userId: req?.query?.userId,
+        sessionId: req?.query?.sessionId,
+        moduleId: req?.query?.moduleId,
+      },
       { $inc: { viewCount: 1 }, $set: { lastViewedAt: new Date() } },
       { upsert: true, new: true }
     );
@@ -792,5 +903,7 @@ module.exports = {
   getWatchedSessions,
   updateSessionFaculties,
   getUpcomingLivePrograms,
+  getSessionsByDifficulty,
+  getCompletedSessionsByUsers,
   // You might want to add specific LiveProgram methods later if needed, e.g., getLiveProgramById
 };

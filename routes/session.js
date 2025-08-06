@@ -7,6 +7,7 @@ const {
   createSession,
   getSessions,
   updateSession,
+  getCompletedSessionsByUsers,
   deleteSession,
   getWatchedSessions,
   trackSessionView,
@@ -15,7 +16,9 @@ const {
   getTopRatedLectures,
   getRecentItems,
   updateSessionFaculties,
-  getUpcomingLivePrograms, // Import the new method
+  getUpcomingLivePrograms,
+  getSessionsByDifficulty,
+  // Import the new method
 } = require("../controllers/session.controller");
 
 // --- CREATE SESSION ---
@@ -35,19 +38,21 @@ router.post(
   trackSessionView
 );
 
-// --- GET SESSIONS (General/Paginated) ---
-// Can filter by sessionType (Dicom, Vimeo, Live, All) and supports pagination
 router.get(
   "/get",
-  // authMiddleware, // Uncomment when authentication is ready
+  // authMiddleware,
   getSessions
 );
 
-// --- GET RECENT ITEMS ---
-// Retrieves a combined list of recent DicomCases, RecordedLectures, and LivePrograms
+router.get(
+  "/getSessionByDifficulty",
+  // authMiddleware,
+  getSessionsByDifficulty
+);
+
 router.get(
   "/getRecentItems",
-  // authMiddleware, // Uncomment when authentication is ready
+  // authMiddleware,
   getRecentItems
 );
 
@@ -71,6 +76,12 @@ router.get(
   "/getWatchedSessions",
   // authMiddleware, // Uncomment when authentication is ready
   getWatchedSessions
+);
+
+router.get(
+  "/getCompletedSessions",
+  // authMiddleware, // Uncomment when authentication is ready
+  getCompletedSessionsByUsers
 );
 
 // --- GET TOP WATCHED SESSIONS ---

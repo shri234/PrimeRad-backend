@@ -14,6 +14,7 @@ const RecordedLecturesSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+
   pathologyName: {
     type: String,
     trim: true,
@@ -24,6 +25,10 @@ const RecordedLecturesSchema = new mongoose.Schema({
       ref: "Faculty",
     },
   ],
+  moduleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Module",
+  },
   pathologyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Pathology",
@@ -116,6 +121,9 @@ const joiRecordedlectureSchema = Joi.object({
   description: Joi.string().allow(null, "").optional(),
   moduleName: Joi.string().required(),
   pathologyName: Joi.string().trim().optional(),
+  moduleId: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .optional(),
   pathologyId: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
     .optional(),

@@ -1,6 +1,9 @@
 // controllers/module.controller.js
 const Module = require("../models/module.model");
-const Pathology = require("../models/pathology.model"); // <-- Import Pathology model
+const DicomCases = require("../models/dicomcase.model");
+const RecordedLectures = require("../models/recordedlecture.model");
+const Pathology = require("../models/pathology.model");
+const LivePrograms = require("../models/liveprograms.model");
 const logger = require("../config/logger");
 
 async function getModules(req, res) {
@@ -84,6 +87,106 @@ async function getModulesWithPathologyCount(req, res) {
   }
 }
 
+async function getModulesWithSessionCount(req, res) {
+  try {
+    const modules = await Module.aggregate([
+      // Lookup pathologies associated with the module
+      {
+        $lookup: {
+          from: "pathologies",
+          localField: "_id",
+          foreignField: "moduleId",
+          as: "pathologies",
+        },
+      },
+      // Lookup recorded lectures associated with the module
+      {
+        $lookup: {
+          from: "recordedlectures", // Assuming this is the name of the collection for RecordedLectures
+          localField: "_id",
+          foreignField: "moduleId",
+          as: "recordedLectures",
+        },
+      },
+      // Lookup live programs associated with the module
+      {
+        $lookup: {
+          from: "liveprograms", // Assuming this is the name of the collection for LivePrograms
+          localField: "_id",
+          foreignField: "moduleId",
+          as: "livePrograms",
+        },
+      },
+      // Lookup DICOM cases associated with the module
+      {
+        $lookup: {
+          from: "dicomcases", // Assuming this is the name of the collection for DicomCases
+          localField: "_id",
+          foreignField: "moduleId",
+          as: "dicomCases",
+        },
+      },
+      // Add a field to count the total number of sessions across all three types
+      {
+        $addFields: {
+          totalSessionsCount: {
+            $add: [
+              { $size: "$recordedLectures" },
+              { $size: "$livePrograms" },
+              { $size: "$dicomCases" },
+            ],
+          },
+          totalPathologiesCount: { $size: "$pathologies" },
+          pathologyNames: "$pathologies.pathologyName",
+        },
+      },
+      // Project the final output fields
+      {
+        $project: {
+          moduleName: 1,
+          totalPathologiesCount: 1,
+          totalSessionsCount: 1,
+          randomPathologyNames: {
+            $let: {
+              vars: {
+                randomIndex: {
+                  $floor: {
+                    $multiply: [{ $size: "$pathologyNames" }, { $rand: {} }],
+                  },
+                },
+              },
+              in: {
+                $slice: ["$pathologyNames", "$$randomIndex", 3],
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    if (!modules || modules.length === 0) {
+      logger.info("Couldn't find any modules with sessions or pathologies.");
+      return res.status(200).json({ message: "No modules found", data: [] });
+    }
+
+    logger.info(
+      "Got Modules with Session, Pathology Count, and Sample Pathologies Successfully"
+    );
+    res.status(200).json({
+      message:
+        "Got Modules with Session, Pathology Count, and Sample Pathologies Successfully",
+      data: modules,
+    });
+  } catch (err) {
+    logger.error(
+      `Error getting modules with session and pathology count: ${err.message}`
+    );
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: err.message });
+  }
+}
+
 async function createModules(req, res) {
   try {
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
@@ -158,5 +261,6 @@ module.exports = {
   getModulesWithPathologyCount, // <-- Export the new function
   createModules,
   updateModules,
+  getModulesWithSessionCount,
   // deleteModules (if you have one)
 };

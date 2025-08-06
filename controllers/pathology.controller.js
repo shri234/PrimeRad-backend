@@ -102,25 +102,57 @@ async function updatePathologies(req, res) {
 async function getPathologiesByModule(req, res) {
   try {
     const { moduleId } = req.query;
-    if (!moduleId) {
-      return res.status(400).json({ message: "Module ID is required" });
+
+    // Handle the case where no moduleId is provided
+    if (!moduleId || (Array.isArray(moduleId) && moduleId.length === 0)) {
+      return res.status(400).json({ message: "Module ID(s) are required" });
     }
-    const pathologies = await Pathology.find({ moduleId });
+
+    let moduleIds;
+    if (Array.isArray(moduleId)) {
+      // Case 1: Multiple IDs sent as separate query parameters (?moduleId=id1&moduleId=id2)
+      // The value is already an array, so just trim whitespace.
+      moduleIds = moduleId.map((id) => id.trim());
+    } else if (typeof moduleId === "string") {
+      // Case 2: A single ID or multiple IDs as a comma-separated string
+      // Check for a comma to determine the format.
+      if (moduleId.includes(",")) {
+        // Multiple IDs in a comma-separated string
+        moduleIds = moduleId.split(",").map((id) => id.trim());
+      } else {
+        // A single ID as a string
+        moduleIds = [moduleId.trim()];
+      }
+    } else {
+      // Handle any unexpected data type for moduleId
+      return res
+        .status(400)
+        .json({ message: "Invalid format for Module ID(s)" });
+    }
+
+    // Use the Mongoose $in operator to find documents where moduleId is in the array
+    const pathologies = await Pathology.find({ moduleId: { $in: moduleIds } });
+
     if (!pathologies || pathologies.length === 0) {
-      logger.info(`No pathologies found for module ID: ${moduleId}`);
+      logger.info(
+        `No pathologies found for module IDs: ${moduleIds.join(", ")}`
+      );
       return res
         .status(404)
-        .json({ message: "No pathologies found for this module" });
+        .json({ message: "No pathologies found for these modules" });
     }
+
     logger.info(
-      `Successfully retrieved pathologies for module ID: ${moduleId}`
+      `Successfully retrieved pathologies for module IDs: ${moduleIds.join(
+        ", "
+      )}`
     );
     res.status(200).json({
-      message: "Got Pathologies for module Successfully",
+      message: "Got Pathologies for modules Successfully",
       data: pathologies,
     });
   } catch (err) {
-    logger.error(`Error getting pathologies by module: ${err.message}`);
+    logger.error(`Error getting pathologies by modules: ${err.message}`);
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 }

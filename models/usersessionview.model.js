@@ -12,8 +12,17 @@ const userSessionViewSchema = new mongoose.Schema(
       ref: "Session",
       required: true,
     },
+    moduleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Module",
+    },
     viewCount: { type: Number, default: 1 },
     lastViewedAt: { type: Date, default: Date.now },
+    // New field to track if the session is completed by the user
+    isCompleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

@@ -9,9 +9,9 @@ const PathologySchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    // trim: true,
     default: null,
   },
+
   moduleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Module",

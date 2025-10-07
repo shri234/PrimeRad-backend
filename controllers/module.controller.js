@@ -1,4 +1,3 @@
-// controllers/module.controller.js
 const Module = require("../models/module.model");
 const DicomCases = require("../models/dicomcase.model");
 const RecordedLectures = require("../models/recordedlecture.model");
@@ -90,7 +89,6 @@ async function getModulesWithPathologyCount(req, res) {
 async function getModulesWithSessionCount(req, res) {
   try {
     const modules = await Module.aggregate([
-      // Lookup pathologies associated with the module
       {
         $lookup: {
           from: "pathologies",
@@ -99,34 +97,30 @@ async function getModulesWithSessionCount(req, res) {
           as: "pathologies",
         },
       },
-      // Lookup recorded lectures associated with the module
       {
         $lookup: {
-          from: "recordedlectures", // Assuming this is the name of the collection for RecordedLectures
+          from: "recordedlectures",
           localField: "_id",
           foreignField: "moduleId",
           as: "recordedLectures",
         },
       },
-      // Lookup live programs associated with the module
       {
         $lookup: {
-          from: "liveprograms", // Assuming this is the name of the collection for LivePrograms
+          from: "liveprograms",
           localField: "_id",
           foreignField: "moduleId",
           as: "livePrograms",
         },
       },
-      // Lookup DICOM cases associated with the module
       {
         $lookup: {
-          from: "dicomcases", // Assuming this is the name of the collection for DicomCases
+          from: "dicomcases",
           localField: "_id",
           foreignField: "moduleId",
           as: "dicomCases",
         },
       },
-      // Add a field to count the total number of sessions across all three types
       {
         $addFields: {
           totalSessionsCount: {
@@ -140,7 +134,6 @@ async function getModulesWithSessionCount(req, res) {
           pathologyNames: "$pathologies.pathologyName",
         },
       },
-      // Project the final output fields
       {
         $project: {
           moduleName: 1,
@@ -216,7 +209,7 @@ async function createModules(req, res) {
     logger.error(`Error internal server error message: ${err}`);
     return res
       .status(500)
-      .json({ message: "Internal Server Error", error: err.message }); // Changed 404 to 500 for server error
+      .json({ message: "Internal Server Error", error: err.message });
   }
 }
 
@@ -252,15 +245,14 @@ async function updateModules(req, res) {
     logger.error(`Error in updating module: ${err.message}`);
     res
       .status(500)
-      .json({ message: "Error in updating module", error: err.message }); // Use 500 for server errors
+      .json({ message: "Error in updating module", error: err.message });
   }
 }
 
 module.exports = {
   getModules,
-  getModulesWithPathologyCount, // <-- Export the new function
+  getModulesWithPathologyCount,
   createModules,
   updateModules,
   getModulesWithSessionCount,
-  // deleteModules (if you have one)
 };

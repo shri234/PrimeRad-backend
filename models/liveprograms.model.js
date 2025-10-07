@@ -41,7 +41,6 @@ const LiveProgramsSchema = new mongoose.Schema({
     default: false,
   },
 
-  // Zoom-specific fields
   zoomMeetingId: {
     type: String,
     default: null,
@@ -59,7 +58,6 @@ const LiveProgramsSchema = new mongoose.Schema({
     default: null,
   },
 
-  // Vimeo-specific fields
   vimeoVideoId: {
     type: String,
     default: null,

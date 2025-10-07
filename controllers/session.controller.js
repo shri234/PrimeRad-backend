@@ -1,7 +1,9 @@
 const DicomCases = require("../models/dicomcase.model");
 const RecordedLectures = require("../models/recordedlecture.model");
 const Pathology = require("../models/pathology.model");
-const LivePrograms = require("../models/liveprograms.model"); // 1. Import LivePrograms model
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const LivePrograms = require("../models/liveprograms.model");
 const fs = require("fs");
 const sharp = require("sharp");
 const { PlaybackProgress } = require("../models/playbackprogress.model");
@@ -72,8 +74,8 @@ async function createSession(req, res) {
       startTime: req.body?.startTime,
       endTime: req.body?.endTime,
       createdAt: req.body?.createdAt,
-      resourceLinks: req.body?.resourceLinks, // Common for all
-      facultyIds: req.body?.faculty, // Assuming faculty comes as an array of IDs in 'faculty'
+      resourceLinks: req.body?.resourceLinks,
+      facultyIds: req.body?.faculty,
     };
 
     if (req.body.sessionType?.trim() === "Dicom") {
@@ -115,18 +117,20 @@ async function createSession(req, res) {
         });
       }
       await RecordedLectures.create(value);
-    } else if (req.body.sessionType?.trim() === "Live") {
+    } else if (req.body.sessionType?.trim() === "Zoom") {
       const liveProgramData = {
         ...commonSessionData,
-        sessionType: req.body.liveProgramType,
-        zoomMeetingId: req.body?.zoomMeetingId,
+        sessionType: req?.body.liveProgramType,
+        zoomMeetingId: req?.body?.zoomMeetingId,
         zoomPassword: req?.body?.zoomPassword,
-        zoomJoinUrl: req.body?.zoomJoinUrl,
-        zoomBackUpLink: req.body?.zoomBackUpLink,
-        vimeoVideoId: req.body?.vimeoVideoId,
-        vimeoLiveUrl: req.body?.vimeoLiveUrl,
+        zoomJoinUrl: req?.body?.zoomJoinUrl,
+        zoomBackUpLink: req?.body?.zoomBackUpLink,
+        vimeoVideoId: req?.body?.vimeoVideoId,
+        vimeoLiveUrl: req?.body?.vimeoLiveUrl,
       };
+
       const { error, value } = LivePrograms.validateProgram(liveProgramData);
+
       if (error) {
         return res.status(400).json({
           message: "Validation error for Live Program",
@@ -147,11 +151,10 @@ async function getCompletedSessionsByUsers(req, res) {
   try {
     const { userId } = req.query;
 
-    // Find all completed sessions for this user
     const completedSessions = await UserSessionView.find({
       userId,
       isCompleted: true,
-    }).sort({ updatedAt: -1 }); // Latest first
+    }).sort({ updatedAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -170,16 +173,7 @@ async function getCompletedSessionsByUsers(req, res) {
 
 async function getSessionsByDifficulty(req, res) {
   try {
-    const { difficulty, pathologyId, page = 1, limit = 10 } = req.query;
-    if (
-      !difficulty ||
-      !["beginner", "advanced"].includes(difficulty.toLowerCase())
-    ) {
-      return res.status(400).json({
-        message:
-          "Difficulty parameter is required and must be either 'beginner' or 'advanced'",
-      });
-    }
+    const { pathologyId, page = 1, limit = 10 } = req.query;
 
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
@@ -188,10 +182,8 @@ async function getSessionsByDifficulty(req, res) {
     const populateFacultyQuery = { path: "faculty", select: "name image" };
     const difficultyFilter = {
       pathologyId: pathologyId,
-      difficulty: difficulty.toLowerCase(),
     };
 
-    // Fetch all three types of sessions with the specified difficulty
     const [dicomSessions, recordedSessions, liveSessions] = await Promise.all([
       DicomCases.find(difficultyFilter)
         .populate(populateFacultyQuery)
@@ -204,7 +196,6 @@ async function getSessionsByDifficulty(req, res) {
         .sort({ createdAt: -1 }),
     ]);
 
-    // Combine all sessions and add sessionType identifier
     let combinedSessions = [
       ...dicomSessions.map((session) => ({
         ...session.toObject(),
@@ -230,11 +221,10 @@ async function getSessionsByDifficulty(req, res) {
     const paginatedSessions = combinedSessions.slice(skip, skip + limitNum);
 
     return res.status(200).json({
-      message: `Got ${difficulty} sessions successfully`,
+      message: `Got sessions successfully`,
       page: pageNum,
       limit: limitNum,
       total: totalCount,
-      difficulty: difficulty.toLowerCase(),
       data: paginatedSessions,
       breakdown: {
         dicomCount: dicomSessions.length,
@@ -250,9 +240,10 @@ async function getSessionsByDifficulty(req, res) {
     });
   }
 }
+
 async function getSessions(req, res) {
   try {
-    let getSessions = []; // Used for paginated data
+    let getSessions = [];
     let totalCount = 0;
     const { sessionType, page = 1, limit = 10 } = req.query;
 
@@ -281,7 +272,7 @@ async function getSessions(req, res) {
         totalCount = await RecordedLectures.countDocuments({});
         break;
 
-      case "Live": // 3. Handle LivePrograms in getSessions
+      case "Live":
         getSessions = await LivePrograms.find({})
           .populate(populateFacultyQuery)
           .sort({ createdAt: -1 })
@@ -291,7 +282,7 @@ async function getSessions(req, res) {
         break;
 
       case "All":
-      default: // This case handles requests without a specific sessionType or with 'All'
+      default:
         const [dicomDocs, recordedDocs, liveDocs] = await Promise.all([
           DicomCases.find({}).populate(populateFacultyQuery),
           RecordedLectures.find({}).populate(populateFacultyQuery),
@@ -324,7 +315,7 @@ async function getSessions(req, res) {
 
 async function getTopRatedCases(req, res) {
   try {
-    let { page = 1, limit } = req.query; // page is not used for top rated but kept for consistency
+    let { page = 1, limit } = req.query;
     const populateFacultyQuery = { path: "faculty", select: "name image" };
 
     let getCases;
@@ -333,21 +324,21 @@ async function getTopRatedCases(req, res) {
         .populate(populateFacultyQuery)
         .sort({ createdAt: -1 });
     } else {
-      const limitNum = parseInt(limit, 10) || 10; // Default to 10 if limit is invalid
+      const limitNum = parseInt(limit, 10) || 10;
       getCases = await DicomCases.find({})
         .populate(populateFacultyQuery)
         .sort({ createdAt: -1 })
         .limit(limitNum);
     }
     return res.status(200).json({
-      message: "Got top Cases successfully", // Message updated
+      message: "Got top Cases successfully",
       data: getCases,
     });
   } catch (error) {
     console.error("Error in getting top cases:", error);
     return res.status(500).json({
       message: "Error in getting top cases",
-      response: error.message, // Send error.message for more helpful info
+      response: error.message,
     });
   }
 }
@@ -584,9 +575,6 @@ async function getWatchedSessions(req, res) {
       })
       .filter(Boolean);
 
-    // Sort by last watched date (most recent first) - already sorted by PlaybackProgress.find above
-    // If you need secondary sort after combining, you can re-sort here.
-
     return res.status(200).json({
       message: "Got watched sessions successfully",
       data: watchedSessions,
@@ -603,13 +591,12 @@ async function getWatchedSessions(req, res) {
 
 async function updateSession(req, res) {
   try {
-    let sessionFound = false; // Flag to check if any session was updated
-    let Model; // Mongoose model to use
-    let updateData; // Data to update
-    let validationError; // Joi validation error
-    let validatedValue; // Joi validated data
+    let sessionFound = false;
+    let Model;
+    let updateData;
+    let validationError;
+    let validatedValue;
 
-    // Handle image uploads and aspect ratio validation
     let imageUrl_1920x1080 =
       req.files && req.files["image1920x1080"]
         ? `/uploads/${req.files["image1920x1080"][0].filename}`
@@ -640,7 +627,6 @@ async function updateSession(req, res) {
       }
     }
 
-    // Common update data
     const commonUpdateData = {
       title: req.body?.title,
       description: req.body?.description,
@@ -657,7 +643,7 @@ async function updateSession(req, res) {
       startTime: req.body?.startTime,
       endTime: req.body?.endTime,
       resourceLinks: req.body?.resourceLinks,
-      faculty: req.body?.faculty, // Assuming faculty array of IDs is passed directly
+      faculty: req.body?.faculty,
     };
 
     if (req.query.sessionType === "Dicom") {
@@ -687,16 +673,15 @@ async function updateSession(req, res) {
       ({ error: validationError, value: validatedValue } =
         RecordedLectures.validateUser(updateData));
     } else if (req.query.sessionType === "Live") {
-      // 7. Handle LivePrograms in updateSession
       Model = LivePrograms;
       updateData = {
         ...commonUpdateData,
-        sessionType: req.body.liveProgramType, // 'Zoom' or 'Vimeo' from LivePrograms model
-        zoomMeetingId: req.body?.zoomMeetingId,
-        zoomJoinUrl: req.body?.zoomJoinUrl,
-        zoomStartUrl: req.body?.zoomStartUrl,
-        vimeoVideoId: req.body?.vimeoVideoId,
-        vimeoLiveUrl: req.body?.vimeoLiveUrl,
+        sessionType: req?.body?.liveProgramType,
+        zoomMeetingId: req?.body?.zoomMeetingId,
+        zoomJoinUrl: req?.body?.zoomJoinUrl,
+        zoomStartUrl: req?.body?.zoomStartUrl,
+        vimeoVideoId: req?.body?.vimeoVideoId,
+        vimeoLiveUrl: req?.body?.vimeoLiveUrl,
       };
       ({ error: validationError, value: validatedValue } =
         LivePrograms.validateProgram(updateData));
@@ -713,7 +698,6 @@ async function updateSession(req, res) {
       });
     }
 
-    // Assuming req.query.id holds the session ID for update
     const updatedDoc = await Model.findByIdAndUpdate(
       req.query.id,
       validatedValue,
@@ -762,7 +746,6 @@ async function updateSessionFaculties(req, res) {
     } else if (sessionType.toLowerCase() === "vimeo") {
       sessionModel = RecordedLectures;
     } else if (sessionType.toLowerCase() === "live") {
-      // 8. Handle LivePrograms
       sessionModel = LivePrograms;
     } else {
       return res.status(400).json({
@@ -795,22 +778,17 @@ async function updateSessionFaculties(req, res) {
 
 async function getUpcomingLivePrograms(req, res) {
   try {
-    const limit = parseInt(req.query.limit, 10) || 10; // Default limit to 10
-    const now = new Date(); // Get current date and time
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const now = new Date();
 
     const populateFacultyQuery = { path: "faculty", select: "name image" };
 
     const upcomingPrograms = await LivePrograms.find({
-      // Find programs where startDate is greater than or equal to the current date/time
-      // (assuming startDate includes time, as per mongoose Date type)
       startDate: { $gte: now },
     })
       .populate(populateFacultyQuery)
       .sort({
-        startDate: 1, // Sort by start date ascending
-        // If startTime is consistently formatted (e.g., "HH:MM") and
-        // you want to sort by time within the same day, you could add:
-        // startTime: 1,
+        startDate: 1,
       })
       .limit(limit);
 
@@ -843,7 +821,6 @@ async function deleteSession(req, res) {
     } else if (sessionType === "Vimeo") {
       deletedSession = await RecordedLectures.findByIdAndDelete(sessionId);
     } else if (sessionType === "Live") {
-      // 9. Handle LivePrograms
       deletedSession = await LivePrograms.findByIdAndDelete(sessionId);
     } else {
       return res.status(400).json({ message: "Invalid session type" });
@@ -863,9 +840,38 @@ async function deleteSession(req, res) {
   }
 }
 
+async function generateZoomSignature(req, res) {
+  try {
+    const apiKey = process.env.ZOOM_API_KEY;
+    const apiSecret = process.env.ZOOM_API_SECRET;
+    const meetingNumber = req.query.meetingNumber;
+    const role = req.query.role;
+
+    const iat = Math.round(new Date().getTime() / 1000) - 30;
+    const exp = iat + 60 * 60 * 2;
+
+    const payload = {
+      sdkKey: apiKey,
+      mn: meetingNumber,
+      role: role,
+      iat: iat,
+      exp: exp,
+      tokenExp: exp,
+    };
+
+    const token = jwt.sign(payload, apiSecret, { algorithm: "HS256" });
+    res
+      .status(200)
+      .json({ message: "Generated Signature Successfully", signature: token });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error in Signature Generation",
+      error: error,
+    });
+  }
+}
+
 async function trackSessionView(req, res) {
-  // This function might need modification if 'LivePrograms' views are tracked differently
-  // or if PlaybackProgress should distinguish between live and recorded/dicom
   try {
     let data = await UserSessionView.findOneAndUpdate(
       {
@@ -905,5 +911,6 @@ module.exports = {
   getUpcomingLivePrograms,
   getSessionsByDifficulty,
   getCompletedSessionsByUsers,
+  generateZoomSignature,
   // You might want to add specific LiveProgram methods later if needed, e.g., getLiveProgramById
 };

@@ -44,7 +44,6 @@ const SubscriptionSchema = new mongoose.Schema({
   },
 });
 
-// Joi Validation Schema
 const joiSubscriptionSchema = Joi.object({
   packageName: Joi.string().required(),
   description: Joi.string(),

@@ -221,8 +221,6 @@ async function capturePayPalPayment(req, res) {
       );
     }
   } catch (err) {
-    // Handle API errors during capture
-    // The new SDK provides more detailed error structures (err.statusCode, err.response.details)
     console.error(
       "Error in capturePayPalPayment:",
       err.statusCode,
@@ -274,13 +272,9 @@ async function createPackages(req, res) {
     });
   }
 }
+
 async function initiatePayment(req, res) {
   try {
-    // const token =
-    //   req.cookies?.jwt || req.headers["authorization"]?.split(" ")[1];
-    // const decoded = jwt.verify(token, process.env.SECRET_KEY);
-    // const user = await User.findById(decoded._id);
-
     const getPackage = await Package.findById(req?.query?.packageId);
 
     if (!getPackage) {
@@ -307,12 +301,12 @@ async function initiatePayment(req, res) {
       .json({ message: "Payment initiation failed", error: err.message });
   }
 }
+
 async function handlePaymentWebhook(req, res) {
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const payload = JSON.stringify(req.body);
     const signature = req.headers["x-razorpay-signature"];
-
     const isValid = Razorpay.validateWebhookSignature(
       payload,
       signature,
@@ -333,21 +327,19 @@ async function handlePaymentWebhook(req, res) {
       expiryDate.setDate(expiryDate.getDate() + package.duration);
 
       if (!transaction) {
-        // Create transaction if it doesn't exist (e.g., if frontend verification failed/was skipped)
         transaction = await PaymentTransaction.create({
           userId: user._id,
           packageId: package._id,
           packageName: package.packageName,
-          amount: payment.amount / 100, // Razorpay amount is in smallest unit
+          amount: payment.amount / 100,
           currency: payment.currency,
           paymentGateway: "razorpay",
           gatewayOrderId: payment.order_id,
           gatewayPaymentId: payment.id,
           status: "captured",
-          razorpayResponse: payment, // Store the full payment entity
+          razorpayResponse: payment,
         });
       } else {
-        // Update existing transaction status
         transaction.status = "captured";
         transaction.razorpayResponse = payment;
         await transaction.save();
@@ -387,24 +379,22 @@ async function verifyPayment(req, res) {
       packageId,
     } = req.body;
 
-    // Verify the signature
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     const generatedSignature = hmac.digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
-      // Store failed transaction
       await PaymentTransaction.create({
         userId: userId,
-        packageId: packageId, // Ensure these are passed from frontend or fetched
-        packageName: "UNKNOWN", // Update with actual package name if available
-        amount: 0, // Update with actual amount
+        packageId: packageId,
+        packageName: "UNKNOWN",
+        amount: 0,
         currency: "INR",
         paymentGateway: "razorpay",
         gatewayOrderId: razorpay_order_id,
         gatewayPaymentId: razorpay_payment_id,
         status: "failed",
-        razorpayResponse: req.body, // Store the response received
+        razorpayResponse: req.body,
       });
       return res
         .status(400)
@@ -435,21 +425,20 @@ async function verifyPayment(req, res) {
         packageName: package.packageName,
         packageId: package._id,
         expiryDate: expiryDate,
-        paymentId: paymentDetails.id, // Razorpay payment ID
+        paymentId: paymentDetails.id,
       });
 
-      // Store successful transaction
       await PaymentTransaction.create({
         userId: user._id,
         packageId: package._id,
         packageName: package.packageName,
-        amount: paymentDetails.amount / 100, // Razorpay amount is in smallest unit
+        amount: paymentDetails.amount / 100,
         currency: paymentDetails.currency,
         paymentGateway: "razorpay",
         gatewayOrderId: razorpay_order_id,
         gatewayPaymentId: razorpay_payment_id,
         status: "captured",
-        razorpayResponse: paymentDetails, // Store the full Razorpay payment object
+        razorpayResponse: paymentDetails,
       });
 
       res.status(200).json({
@@ -457,17 +446,16 @@ async function verifyPayment(req, res) {
         subscription,
       });
     } else {
-      // Payment not captured (e.g., failed, authorized but not captured)
       await PaymentTransaction.create({
         userId: userId,
         packageId: packageId,
-        packageName: package.packageName, // Make sure you have this
+        packageName: package.packageName,
         amount: paymentDetails.amount / 100,
         currency: paymentDetails.currency,
         paymentGateway: "razorpay",
         gatewayOrderId: razorpay_order_id,
         gatewayPaymentId: razorpay_payment_id,
-        status: paymentDetails.status, // Store the actual status
+        status: paymentDetails.status,
         razorpayResponse: paymentDetails,
       });
       res

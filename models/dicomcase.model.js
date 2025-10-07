@@ -12,7 +12,6 @@ const DicomCasesSchema = new mongoose.Schema({
   },
   moduleName: {
     type: String,
-    // required: true,
   },
   pathologyName: {
     type: String,
@@ -22,18 +21,21 @@ const DicomCasesSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Pathology",
   },
+
   faculty: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Faculty",
     },
   ],
+
   difficulty: {
     type: String,
     required: true,
     trim: true,
     default: "intermediate",
   },
+
   isAssessment: {
     type: Boolean,
     default: false,

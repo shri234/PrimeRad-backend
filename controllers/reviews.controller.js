@@ -5,9 +5,9 @@ exports.getReviewsByItemId = async (req, res) => {
   try {
     const itemId = req.query.itemId;
     const reviews = await Review.find({ itemId })
-      .populate("userId") // Get user info
+      .populate("userId")
       .sort({ createdAt: -1 })
-      .limit(4); // Newest first
+      .limit(4);
     res.status(200).json({ success: true, data: reviews });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -17,7 +17,7 @@ exports.getReviewsByItemId = async (req, res) => {
 exports.getUserReviewForItem = async (req, res) => {
   try {
     const itemId = req.query.itemId;
-    const userId = req.query.userId; // From authenticated user
+    const userId = req.query.userId;
     const review = await Review.find({ itemId, userId });
     res.status(200).json({ success: true, data: review });
   } catch (error) {
@@ -40,9 +40,6 @@ exports.createReview = async (req, res) => {
 
     const newReview = await Review.create({ itemId, userId, rating, comment });
 
-    // --- Update average rating on the Session/Item model (IMPORTANT) ---
-    // await updateAverageRating(itemId); // Call helper function
-
     res.status(201).json({ success: true, data: newReview });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -62,7 +59,6 @@ exports.updateReview = async (req, res) => {
         .json({ success: false, message: "Review not found." });
     }
 
-    // Ensure user is the owner of the review
     if (review.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -75,8 +71,7 @@ exports.updateReview = async (req, res) => {
     review.updatedAt = Date.now();
     await review.save();
 
-    // --- Update average rating on the Session/Item model (IMPORTANT) ---
-    await updateAverageRating(review.itemId); // Call helper function
+    await updateAverageRating(review.itemId);
 
     res.status(200).json({ success: true, data: review });
   } catch (error) {
@@ -84,7 +79,6 @@ exports.updateReview = async (req, res) => {
   }
 };
 
-// 5. Delete a Review
 exports.deleteReview = async (req, res) => {
   try {
     const { reviewId } = req.params;
@@ -97,7 +91,6 @@ exports.deleteReview = async (req, res) => {
         .json({ success: false, message: "Review not found." });
     }
 
-    // Ensure user is the owner of the review
     if (review.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -105,10 +98,8 @@ exports.deleteReview = async (req, res) => {
       });
     }
 
-    await review.deleteOne(); // Use deleteOne() or remove() depending on Mongoose version
-
-    // --- Update average rating on the Session/Item model (IMPORTANT) ---
-    await updateAverageRating(review.itemId); // Call helper function
+    await review.deleteOne();
+    await updateAverageRating(review.itemId);
 
     res
       .status(200)

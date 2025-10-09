@@ -5,10 +5,12 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const LivePrograms = require("../models/liveprograms.model");
 const fs = require("fs");
+const OpenAI = require("openai");
 const sharp = require("sharp");
 const { PlaybackProgress } = require("../models/playbackprogress.model");
 const UserSessionView = require("../models/usersessionview.model");
 
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 async function validateAspectRatio(imagePath, width, height) {
   try {
     const metadata = await sharp(imagePath).metadata();
@@ -895,7 +897,66 @@ async function trackSessionView(req, res) {
   }
 }
 
-// 10. Export new methods and LivePrograms
+async function generateAIComparison(req, res) {
+  try {
+    const { userObservations, facultyObservations } = req.body;
+
+    if (!userObservations || !facultyObservations) {
+      return res.status(400).json({
+        message: "Both userObservations and facultyObservations are required",
+      });
+    }
+
+    const prompt = `
+You are a clinical AI assistant. Compare the following user and faculty observations and return a 
+well-structured **HTML report** (no markdown, only HTML).  
+
+Use this structure:
+<div class="section">
+  <h3>1. Summary of Key Differences</h3>
+  <p>...</p>
+</div>
+<div class="section">
+  <h3>2. Areas of Agreement</h3>
+  <p>...</p>
+</div>
+<div class="section">
+  <h3>3. Suggestions for Improvement (for user)</h3>
+  <ul>
+    <li>...</li>
+  </ul>
+</div>
+<div class="section">
+  <h3>4. Overall Evaluation</h3>
+  <p>...</p>
+</div>
+
+Keep the output clean, readable, and professional. Include line spacing and paragraph breaks.
+Avoid repeating titles or adding markdown symbols.
+
+User Observations:
+${userObservations}
+
+Faculty Observations:
+${facultyObservations}
+`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const htmlReport = response.choices[0].message.content;
+    res.status(200).json({ report: htmlReport });
+  } catch (error) {
+    console.error("Error in generateAIComparison:", error);
+    res.status(500).json({
+      message: "Error in generating AI comparison",
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   createSession,
   getSessions,
@@ -912,5 +973,6 @@ module.exports = {
   getSessionsByDifficulty,
   getCompletedSessionsByUsers,
   generateZoomSignature,
+  generateAIComparison,
   // You might want to add specific LiveProgram methods later if needed, e.g., getLiveProgramById
 };

@@ -18,6 +18,7 @@ const {
   updateSessionFaculties,
   getUpcomingLivePrograms,
   getSessionsByDifficulty,
+  generateAIComparison,
   // Import the new method
 } = require("../controllers/session.controller");
 
@@ -123,5 +124,7 @@ router.delete(
   // authMiddleware, // Uncomment when authentication is ready
   deleteSession
 );
+
+router.post("/compare-observations", generateAIComparison);
 
 module.exports = router;

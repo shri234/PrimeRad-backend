@@ -31,6 +31,7 @@ const allowedOrigins = [
   "https://yourdomain.com",
   "https://heroic-crisp-76fe7e.netlify.app",
   "https://primerad-subscription.netlify.app",
+  "https://wj0w04hv-3000.inc1.devtunnels.ms/",
 ];
 app.use(
   cors({

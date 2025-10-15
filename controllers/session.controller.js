@@ -941,19 +941,34 @@ Faculty Observations:
 ${facultyObservations}
 `;
 
-    const response = await openai.chat.completions.create({
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const stream = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
-    const htmlReport = response.choices[0].message.content;
-    res.status(200).json({ report: htmlReport });
+    for await (const chunk of stream) {
+      const content = chunk.choices?.[0]?.delta?.content || "";
+      if (content) {
+        res.write(content);
+      }
+    }
+
+    res.end();
   } catch (error) {
     console.error("Error in generateAIComparison:", error);
-    res.status(500).json({
-      message: "Error in generating AI comparison",
-      error: error.message,
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        message: "Error in generating AI comparison",
+        error: error.message,
+      });
+    } else {
+      res.end();
+    }
   }
 }
 

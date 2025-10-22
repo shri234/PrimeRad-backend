@@ -15,6 +15,7 @@ import type { Request } from 'express';
 // Define the consistent RequestWithUser interface here as well
 interface RequestWithUser extends Request {
   user?: UserDocument;
+  cookies: Record<string, string>;
 }
 
 @Injectable()

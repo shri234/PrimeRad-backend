@@ -19,7 +19,7 @@ import type { Response } from 'express';
 import { PathologyService } from './pathology.service';
 import { CreatePathologyDto } from './dto/create-pathology.dto';
 import { UpdatePathologyDto } from './dto/update-pathology.dto';
-
+import type { Express } from 'express';
 @Controller('pathologies')
 export class PathologyController {
   private readonly logger = new Logger(PathologyController.name);

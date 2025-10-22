@@ -12,6 +12,7 @@ import { Pathology, PathologyDocument } from './schema/pathology.schema';
 import { Module, ModuleDocument } from '../module/schema/module.schema';
 import { CreatePathologyDto } from './dto/create-pathology.dto';
 import { UpdatePathologyDto } from './dto/update-pathology.dto';
+import type { Express } from 'express';
 
 @Injectable()
 export class PathologyService {

@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import type { Express } from 'express';
 
 @Controller('auth')
 export class AuthController {

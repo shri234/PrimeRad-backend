@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ModuleService } from './module.service';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
+import type { Express } from 'express';
 import {
   ModuleWithPathologyCount,
   ModuleWithSessionCount,

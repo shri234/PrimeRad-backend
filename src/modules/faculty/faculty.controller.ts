@@ -15,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { FacultyService } from './faculty.service';
 import { CreateFacultyDto, UpdateFacultyDto } from './dto/faculty.dto';
 import type { Response } from 'express';
-
+import type { Express } from 'express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 

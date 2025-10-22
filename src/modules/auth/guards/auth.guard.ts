@@ -30,13 +30,13 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 2. Use the RequestWithUser interface for the request object
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const request: any = context.switchToHttp().getRequest<RequestWithUser>();
     const response = context.switchToHttp().getResponse(); // response is not strictly needed here but kept for context
 
     try {
       const token =
-        request.cookies?.jwt || request.headers['authorization']?.split(' ')[1];
+        request.cookies?.jwt ||
+        request?.headers['authorization']?.split(' ')[1];
 
       if (!token) {
         throw new UnauthorizedException('No authentication token provided');

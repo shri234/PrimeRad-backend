@@ -27,13 +27,17 @@ export class PackageController {
       monthly: 30,
       yearly: 365,
       biannually: 180,
+      quarterly: 90,
     };
 
-    const duration = durationMap[createPackageDto.durationUnit];
+    const pricingOptions = createPackageDto.pricingOptions.map((option) => ({
+      ...option,
+      durationDays: durationMap[option.billingCycle] || null,
+    }));
 
     const pkg = await this.packageModel.create({
       ...createPackageDto,
-      duration,
+      pricingOptions,
     });
 
     return {

@@ -32,19 +32,18 @@ export class AuthController {
     try {
       const result = await this.authService.login(loginDto);
 
-      // Set JWT cookies
       res.cookie('jwt', result.accessToken, {
         httpOnly: true,
-        sameSite: 'strict',
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 3600000, // 1 hour
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24h
       });
 
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true,
-        sameSite: 'strict',
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 604800000, // 7 days
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (example)
       });
 
       return {
@@ -109,9 +108,9 @@ export class AuthController {
 
       res.cookie('jwt', result.accessToken, {
         httpOnly: true,
-        sameSite: 'strict',
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 3600000,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24h
       });
 
       return result;

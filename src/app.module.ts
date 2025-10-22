@@ -7,6 +7,7 @@ import { PathologyModule } from './modules/pathology/pathology.module';
 import { ModuleModule } from './modules/module/module.module';
 import { SessionModule } from './modules/sessions/session.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -25,11 +26,11 @@ import { AuthModule } from './modules/auth/auth.module';
       inject: [ConfigService],
     }),
 
-    // Feature modules
     PathologyModule,
     ModuleModule,
     SessionModule,
     AuthModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

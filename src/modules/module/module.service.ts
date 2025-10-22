@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { Module as ModuleEntity, ModuleDocument } from './schema/module.schema';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
+import type { Express } from 'express';
 
 interface ModuleWithPathologyCount {
   _id: string;

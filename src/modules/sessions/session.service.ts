@@ -16,6 +16,7 @@ import { UpdateSessionDto } from './dto/update-session.dto';
 import { applySessionAccessControl } from '../../config/session-access-helper';
 import { IUserAccess, ISession } from './interface/session.interface';
 import { Session, SessionDocument } from './schema/session.schema';
+import type { Express } from 'express';
 import {
   PlaybackProgress,
   PlaybackProgressDocument,
